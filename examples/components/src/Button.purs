@@ -8,15 +8,15 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 
-type Slot = H.Slot Query Message
+type State = { enabled :: Boolean }
 
 data Query a = IsOn (Boolean -> a)
 
-data Message = Toggled Boolean
-
-type State = { enabled :: Boolean }
-
 data Action = Toggle
+
+type Slot = H.Slot Query Message
+
+data Message = Toggled Boolean
 
 component :: forall i m. H.Component HH.HTML Query i Message m
 component =
@@ -43,14 +43,14 @@ render state =
       ]
       [ HH.text label ]
 
-handleAction :: forall m. Action → H.HalogenM State Action () Message m Unit
+handleAction :: forall m. Action -> H.HalogenM State Action () Message m Unit
 handleAction = case _ of
   Toggle -> do
     newState <- H.modify \st -> st { enabled = not st.enabled }
     H.raise (Toggled newState.enabled)
 
-handleQuery :: forall m a. Query a → H.HalogenM State Action () Message m (Maybe a)
+handleQuery :: forall m a. Query a -> H.HalogenM State Action () Message m (Maybe a)
 handleQuery = case _ of
-  IsOn k → do
-    enabled ← H.gets _.enabled
+  IsOn k -> do
+    enabled <- H.gets _.enabled
     pure (Just (k enabled))

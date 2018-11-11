@@ -8,41 +8,36 @@ import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 
-type State = Maybe Number
+type State = { num :: Maybe Number }
 
-data Query a = Regenerate a
+data Action = Regenerate
 
-ui :: H.Component HH.HTML Query Unit Void Aff
+ui :: forall q i o. H.Component HH.HTML q i o Aff
 ui =
-  H.component
-    { initialState: const initialState
+  H.mkComponent
+    { initialState
     , render
-    , eval
-    , receiver: const Nothing
-    , initializer: Nothing
-    , finalizer: Nothing
+    , eval: H.mkEval $ H.defaultEval { handleAction = handleAction }
     }
-  where
 
-  initialState :: State
-  initialState = Nothing
+initialState :: forall i. i -> State
+initialState _ = { num: Nothing }
 
-  render :: forall m. State -> H.ComponentHTML (Query Unit) () m
-  render state =
-    let
-      value = maybe "No number generated yet" show state
-    in
-      HH.div_ $
-        [ HH.h1_ [ HH.text "Random number" ]
-        , HH.p_ [ HH.text ("Current value: " <> value) ]
-        , HH.button
-            [ HE.onClick (HE.input_ Regenerate) ]
-            [ HH.text "Generate new number" ]
-        ]
+render :: forall m. State -> H.ComponentHTML Action () m
+render state =
+  let
+    value = maybe "No number generated yet" show state.num
+  in
+    HH.div_ $
+      [ HH.h1_ [ HH.text "Random number" ]
+      , HH.p_ [ HH.text ("Current value: " <> value) ]
+      , HH.button
+      [ HE.onClick \_ -> Just Regenerate ]
+      [ HH.text "Generate new number" ]
+      ]
 
-  eval :: Query ~> H.HalogenM State (Query Unit) () Void Aff
-  eval = case _ of
-    Regenerate next -> do
-      newNumber <- H.liftEffect random
-      H.put (Just newNumber)
-      pure next
+handleAction ∷ forall o. Action -> H.HalogenM State Action () o Aff Unit
+handleAction = case _ of
+  Regenerate -> do
+    newNumber <- H.liftEffect random
+    H.put { num: Just newNumber }

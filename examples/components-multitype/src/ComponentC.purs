@@ -9,42 +9,45 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 
-type State = String
+type State = { val :: String }
 
-data Query a
-  = HandleInput String a
-  | GetValue (String -> a)
+data Query a = GetValue (String -> a)
+
+data Action = HandleInput String
 
 type Slot = H.Slot Query Void
 
-component :: forall m. H.Component HH.HTML Query Unit Void m
+component :: forall i o m. H.Component HH.HTML Query i o m
 component =
-  H.component
-    { initialState: const initialState
+  H.mkComponent
+    { initialState
     , render
-    , eval
-    , receiver: const Nothing
-    , initializer: Nothing
-    , finalizer: Nothing
+    , eval: H.mkEval $ H.defaultEval
+        { handleAction = handleAction
+        , handleQuery = handleQuery
+        }
     }
-  where
 
-  initialState :: State
-  initialState = "Hello"
+initialState :: forall i. i -> State
+initialState _ = { val: "" }
 
-  render :: State -> H.ComponentHTML (Query Unit) () m
-  render state =
-    HH.label_
-      [ HH.p_ [ HH.text "What do you have to say?" ]
-      , HH.input
-          [ HP.value state
-          , HE.onValueInput (HE.input HandleInput)
-          ]
-      ]
+render :: forall m. State -> H.ComponentHTML Action () m
+render state =
+  HH.label_
+    [ HH.p_ [ HH.text "What do you have to say?" ]
+    , HH.input
+        [ HP.value state.val
+        , HE.onValueInput \i -> Just (HandleInput i)
+        ]
+    ]
 
-  eval :: Query ~> H.HalogenM State (Query Unit) () Void m
-  eval (HandleInput value next) = do
-    H.put value
-    pure next
-  eval (GetValue reply) = do
-    reply <$> H.get
+handleAction :: forall o m. Action -> H.HalogenM State Action () o m Unit
+handleAction = case _ of
+  HandleInput val -> do
+    H.put { val }
+
+handleQuery :: forall o m a. Query a -> H.HalogenM State Action () o m (Maybe a)
+handleQuery = case _ of
+  GetValue k -> do
+    st <- H.get
+    pure (Just (k st.val))
